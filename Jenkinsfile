@@ -18,7 +18,7 @@ pipeline {
         booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Ignorer l\'exécution des tests unitaires et d\'intégration Maven')
         booleanParam(name: 'BUILD_DOCKER', defaultValue: true, description: 'Construire les images Docker des microservices et d\'Apollo Router')
         booleanParam(name: 'RUN_CONTAINER_TESTS', defaultValue: false, description: 'Démarrer les conteneurs et vérifier l\'état de santé (Health Check)')
-        stringParam(name: 'DOCKER_TAG', defaultValue: 'latest', description: 'Tag appliqué aux images Docker construites')
+        string(name: 'DOCKER_TAG', defaultValue: 'latest', description: 'Tag appliqué aux images Docker construites')
     }
 
     environment {
