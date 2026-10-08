@@ -1,0 +1,5 @@
+com\school\academic\api\SchoolGraphQLApi.class
+com\school\academic\model\Classroom.class
+com\school\academic\model\School.class
+com\school\academic\health\ServiceHealthCheck.class
+com\school\academic\repository\SchoolRepository.class

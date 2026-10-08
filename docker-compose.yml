@@ -1,0 +1,130 @@
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+    container_name: jaeger
+    restart: unless-stopped
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+
+  school-service:
+    build:
+      context: .
+      dockerfile: school-service/Dockerfile
+    container_name: school-service
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - QUARKUS_HTTP_PORT=8081
+      - QUARKUS_HTTP_HOST=0.0.0.0
+      - QUARKUS_OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+      - QUARKUS_OTEL_SERVICE_NAME=school-service
+    depends_on:
+      - jaeger
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8081/q/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  student-service:
+    build:
+      context: .
+      dockerfile: student-service/Dockerfile
+    container_name: student-service
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    environment:
+      - QUARKUS_HTTP_PORT=8082
+      - QUARKUS_HTTP_HOST=0.0.0.0
+      - QUARKUS_OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+      - QUARKUS_OTEL_SERVICE_NAME=student-service
+    depends_on:
+      - jaeger
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8082/q/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  course-service:
+    build:
+      context: .
+      dockerfile: course-service/Dockerfile
+    container_name: course-service
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    environment:
+      - QUARKUS_HTTP_PORT=8083
+      - QUARKUS_HTTP_HOST=0.0.0.0
+      - QUARKUS_OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+      - QUARKUS_OTEL_SERVICE_NAME=course-service
+    depends_on:
+      - jaeger
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8083/q/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  evaluation-service:
+    build:
+      context: .
+      dockerfile: evaluation-service/Dockerfile
+    container_name: evaluation-service
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    environment:
+      - QUARKUS_HTTP_PORT=8084
+      - QUARKUS_HTTP_HOST=0.0.0.0
+      - QUARKUS_OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+      - QUARKUS_OTEL_SERVICE_NAME=evaluation-service
+    depends_on:
+      - jaeger
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8084/q/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  apollo-router:
+    image: ghcr.io/apollographql/router:v1.54.0
+    container_name: apollo-router
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./apollo-router/router.yaml:/etc/config/router.yaml:ro
+      - ./apollo-router/supergraph.graphql:/etc/config/supergraph.graphql:ro
+    command:
+      - "--config"
+      - "/etc/config/router.yaml"
+      - "--supergraph"
+      - "/etc/config/supergraph.graphql"
+    depends_on:
+      jaeger:
+        condition: service_started
+      school-service:
+        condition: service_healthy
+      student-service:
+        condition: service_healthy
+      course-service:
+        condition: service_healthy
+      evaluation-service:
+        condition: service_healthy
+
+networks:
+  default:
+    name: school-network
+

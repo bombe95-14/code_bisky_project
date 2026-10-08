@@ -1,0 +1,29 @@
+supergraph:
+  listen: 0.0.0.0:4000
+  introspection: true
+
+cors:
+  allow_any_origin: true
+  allow_credentials: false
+  allow_headers:
+    - content-type
+    - authorization
+    - apollo-federation-include-trace
+
+sandbox:
+  enabled: true
+
+homepage:
+  enabled: false
+
+telemetry:
+  instrumentation:
+    spans:
+      mode: spec_compliant
+  exporters:
+    tracing:
+      otlp:
+        enabled: true
+        endpoint: http://jaeger:4317
+        protocol: grpc
+

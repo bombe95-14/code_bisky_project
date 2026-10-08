@@ -1,0 +1,8 @@
+com\school\evaluation\health\ServiceHealthCheck.class
+com\school\evaluation\api\EvaluationGraphQLApi.class
+com\school\evaluation\model\Grade.class
+com\school\evaluation\model\AttendanceStatus.class
+com\school\evaluation\repository\EvaluationRepository.class
+com\school\evaluation\model\Exam.class
+com\school\evaluation\model\Student.class
+com\school\evaluation\model\AttendanceRecord.class

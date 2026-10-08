@@ -1,0 +1,86 @@
+# Plan d'implémentation : Tests d'Intégration pour les Microservices Quarkus
+
+Ce plan détaille la mise en place d'une suite de tests d'intégration automatisés pour l'ensemble des 4 microservices du projet (`school-service`, `student-service`, `course-service`, `evaluation-service`).
+
+## Contexte & Objectifs
+
+Actuellement, le projet ne possède aucun test dans aucun des 4 subgraphs (les répertoires `src/test` sont inexistants), bien que `quarkus-junit5` soit référencé dans les `pom.xml`.
+L'objectif est d'assurer une couverture d'intégration robuste :
+- Validation des points d'accès GraphQL (requêtes de base, requêtes fédérées et mutations).
+- Validation de l'état de santé MicroProfile Health (`/q/health`).
+- Validation unitaire des calculs sensibles (notamment le calcul de moyenne pondérée / GPA dans `evaluation-service`).
+- Exécution fluide via Maven (`mvn test`).
+
+---
+
+## Changements Proposés
+
+### 1. Gestion des Dépendances de Test
+
+Ajout de la dépendance de test standard Quarkus `io.rest-assured:rest-assured` (gérée par le BOM Quarkus 3.15.1) dans chaque microservice ou dans le POM parent.
+
+#### [MODIFY] [pom.xml (parent)](file:///c:/Users/USER/Documents/manage%20jenkins/school-management-system/pom.xml)
+- Ajouter `io.rest-assured:rest-assured` en portée `test` dans la section `<dependencies>` du POM racine pour en faire bénéficier automatiquement les 4 subgraphs.
+
+---
+
+### 2. Microservice `school-service`
+
+#### [NEW] [SchoolGraphQLApiIT.java](file:///c:/Users/USER/Documents/manage%20jenkins/school-management-system/school-service/src/test/java/com/school/academic/api/SchoolGraphQLApiIT.java)
+- `@QuarkusTest` validant :
+  1. Le statut UP sur l'endpoint `/q/health`.
+  2. La requête `allSchools` et `school(id: "school-1")` avec résolution de la liste imbriquée des `classrooms`.
+  3. La requête `classroom(id: "class-101")`.
+  4. La mutation `createClassroom` vérifiant la création effective et l'attribution de l'ID.
+
+---
+
+### 3. Microservice `student-service`
+
+#### [NEW] [StudentGraphQLApiIT.java](file:///c:/Users/USER/Documents/manage%20jenkins/school-management-system/student-service/src/test/java/com/school/student/api/StudentGraphQLApiIT.java)
+- `@QuarkusTest` validant :
+  1. Le statut UP sur `/q/health`.
+  2. La requête `allStudents` et `student(id: "stud-001")`.
+  3. La requête d'extension fédérée `classroom(id: "class-101") { students { id firstName } }`.
+  4. La mutation `enrollStudent` vérifiant l'inscription et la persistance de l'étudiant.
+
+---
+
+### 4. Microservice `course-service`
+
+#### [NEW] [CourseGraphQLApiIT.java](file:///c:/Users/USER/Documents/manage%20jenkins/school-management-system/course-service/src/test/java/com/school/course/api/CourseGraphQLApiIT.java)
+- `@QuarkusTest` validant :
+  1. Le statut UP sur `/q/health`.
+  2. La requête `allTeachers` et `allSubjects`.
+  3. La requête `allCourses` avec validation des objets imbriqués `subject` et `teacher`.
+  4. La requête d'extension fédérée `classroom(id: "class-101") { courses { id dayOfWeek room } }`.
+  5. La mutation `scheduleCourse` créant une nouvelle session de cours.
+
+---
+
+### 5. Microservice `evaluation-service`
+
+#### [NEW] [EvaluationRepositoryTest.java](file:///c:/Users/USER/Documents/manage%20jenkins/school-management-system/evaluation-service/src/test/java/com/school/evaluation/repository/EvaluationRepositoryTest.java)
+- Test unitaire ciblé de la logique métier :
+  1. Calcul du GPA pondéré avec coefficients (`calculateGpa`).
+  2. Gestion du cas sans note (doit retourner `null`).
+  3. Vérification du filtrage des présences par `studentId`.
+
+#### [NEW] [EvaluationGraphQLApiIT.java](file:///c:/Users/USER/Documents/manage%20jenkins/school-management-system/evaluation-service/src/test/java/com/school/evaluation/api/EvaluationGraphQLApiIT.java)
+- `@QuarkusTest` validant :
+  1. Le statut UP sur `/q/health`.
+  2. La requête `allExams` et `allGrades`.
+  3. La requête d'extension fédérée `student(id: "stud-001")` retournant `grades`, `gpa` et `attendances`.
+  4. La mutation `recordGrade` attribuant une nouvelle note.
+  5. La mutation `recordAttendance` enregistrant un statut de présence.
+
+---
+
+## Plan de Vérification
+
+### Tests Automatisés
+- Exécution globale depuis la racine :
+  ```bash
+  mvn clean test
+  ```
+- Vérification que les 4 modules compilent, lancent leurs contextes Quarkus de test respectifs, et réussissent 100% des assertions (HTTP 200, codes GraphQL valides, données cohérentes).

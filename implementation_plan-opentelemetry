@@ -1,0 +1,78 @@
+# Plan d'implémentation : Activation d'OpenTelemetry (Tracing Distribué de Bout en Bout)
+
+Ce document décrit l'activation et la configuration d'**OpenTelemetry** sur l'ensemble de l'architecture : de la passerelle **Apollo Router** jusqu'aux **4 subgraphs Quarkus**, avec visualisation des traces dans **Jaeger UI**.
+
+---
+
+## Architecture du Tracing Distribué
+
+```mermaid
+flowchart TD
+    Client["📱 Client GraphQL"] -->|Requête HTTP| Router["⚡ Apollo Router :4000\n(Génère Root Trace ID W3C)"]
+    
+    subgraph Subgraphs ["Microservices Quarkus (quarkus-opentelemetry)"]
+        Router -->|Traceparent Header| School["🏫 school-service :8081"]
+        Router -->|Traceparent Header| Student["👨‍🎓 student-service :8082"]
+        Router -->|Traceparent Header| Course["📚 course-service :8083"]
+        Router -->|Traceparent Header| Eval["📊 evaluation-service :8084"]
+    end
+
+    Router -.->|Spans OTLP gRPC :4317| Jaeger["🔍 Jaeger All-in-One\n(UI :16686 / OTLP :4317)"]
+    School -.->|Spans OTLP :4317| Jaeger
+    Student -.->|Spans OTLP :4317| Jaeger
+    Course -.->|Spans OTLP :4317| Jaeger
+    Eval -.->|Spans OTLP :4317| Jaeger
+```
+
+---
+
+## Changements Proposés
+
+### 1. Dépendances Maven (POMs)
+
+#### [MODIFY] [pom.xml (parent)](file:///c:/Users/USER/Documents/manage%20jenkins/school-management-system/pom.xml)
+- Ajouter l'extension `io.quarkus:quarkus-opentelemetry` dans la section `<dependencies>` du POM racine pour en équiper automatiquement les 4 microservices.
+
+---
+
+### 2. Configuration des Microservices Quarkus (`application.properties`)
+
+Pour chaque microservice (`school-service`, `student-service`, `course-service`, `evaluation-service`) :
+- Définir le nom du service (`quarkus.otel.service.name=<service-name>`).
+- Configurer l'endpoint OTLP par défaut (`quarkus.otel.exporter.otlp.endpoint=http://localhost:4317`).
+- Désactiver OpenTelemetry lors des tests unitaires/intégration (`%test.quarkus.otel.enabled=false`) pour garantir des builds Maven ultra-rapides et sans dépendance à un collecteur actif.
+
+---
+
+### 3. Configuration de la Passerelle Apollo Router
+
+#### [MODIFY] [router.yaml](file:///c:/Users/USER/Documents/manage%20jenkins/school-management-system/apollo-router/router.yaml)
+- Activer l'exportateur OTLP vers Jaeger (`http://jaeger:4317` en gRPC).
+- Activer la propagation de trace W3C (`traceparent`) vers les subgraphs.
+
+---
+
+### 4. Orchestration Docker Compose
+
+#### [MODIFY] [docker-compose.yml](file:///c:/Users/USER/Documents/manage%20jenkins/school-management-system/docker-compose.yml)
+- Ajouter le service **`jaeger`** (`image: jaegertracing/all-in-one:1.60`) avec ports `16686` (UI web) et `4317` (OTLP gRPC).
+- Injecter les variables d'environnement `QUARKUS_OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317` et `QUARKUS_OTEL_SERVICE_NAME` dans chaque conteneur.
+- Configurer la dépendance `depends_on: [jaeger]` pour l'Apollo Router et les subgraphs.
+
+---
+
+## Plan de Vérification
+
+### Tests Automatisés
+- Exécution de la suite complète :
+  ```bash
+  mvn test
+  ```
+  Vérifier que les 27 tests continuent de réussir sans régression avec le profil test (OTEL désactivé en test).
+
+### Validation de la Configuration Docker
+- Exécution de :
+  ```bash
+  docker compose config
+  ```
+  Vérifier la validité structurelle de tous les services et du conteneur Jaeger.

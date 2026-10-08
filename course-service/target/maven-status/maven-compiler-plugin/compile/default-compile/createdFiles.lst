@@ -1,0 +1,7 @@
+com\school\course\model\Subject.class
+com\school\course\model\Teacher.class
+com\school\course\health\ServiceHealthCheck.class
+com\school\course\model\CourseSession.class
+com\school\course\repository\CourseRepository.class
+com\school\course\model\Classroom.class
+com\school\course\api\CourseGraphQLApi.class

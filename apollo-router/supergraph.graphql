@@ -1,0 +1,205 @@
+directive @core(feature: String!) repeatable on SCHEMA
+directive @link(url: String!, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+enum link__Purpose {
+  EXECUTION
+  SECURITY
+}
+
+scalar link__Import
+
+schema
+  @link(url: "https://specs.apollo.dev/link/v1.0")
+  @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION)
+{
+
+  query: Query
+  mutation: Mutation
+}
+
+directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
+directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+scalar join__FieldSet
+
+enum join__Graph {
+  SCHOOL_SERVICE @join__graph(name: "school-service", url: "http://school-service:8081/graphql")
+  STUDENT_SERVICE @join__graph(name: "student-service", url: "http://student-service:8082/graphql")
+  COURSE_SERVICE @join__graph(name: "course-service", url: "http://course-service:8083/graphql")
+  EVALUATION_SERVICE @join__graph(name: "evaluation-service", url: "http://evaluation-service:8084/graphql")
+}
+
+# --- School Domain ---
+
+type School
+  @join__type(graph: SCHOOL_SERVICE)
+{
+  id: String!
+  name: String
+  code: String
+  address: String
+  city: String
+  classrooms: [Classroom]
+}
+
+type Classroom
+  @join__type(graph: SCHOOL_SERVICE, key: "id")
+  @join__type(graph: STUDENT_SERVICE, key: "id", extension: true)
+  @join__type(graph: COURSE_SERVICE, key: "id", extension: true)
+{
+  id: String!
+  name: String @join__field(graph: SCHOOL_SERVICE)
+  code: String @join__field(graph: SCHOOL_SERVICE)
+  gradeLevel: String @join__field(graph: SCHOOL_SERVICE)
+  capacity: Int @join__field(graph: SCHOOL_SERVICE)
+  schoolId: String @join__field(graph: SCHOOL_SERVICE)
+  students: [Student] @join__field(graph: STUDENT_SERVICE)
+  courses: [CourseSession] @join__field(graph: COURSE_SERVICE)
+}
+
+# --- Student Domain ---
+
+type Student
+  @join__type(graph: STUDENT_SERVICE, key: "id")
+  @join__type(graph: EVALUATION_SERVICE, key: "id", extension: true)
+{
+  id: String!
+  firstName: String @join__field(graph: STUDENT_SERVICE)
+  lastName: String @join__field(graph: STUDENT_SERVICE)
+  email: String @join__field(graph: STUDENT_SERVICE)
+  matricule: String @join__field(graph: STUDENT_SERVICE)
+  classroomId: String @join__field(graph: STUDENT_SERVICE)
+  grades: [Grade] @join__field(graph: EVALUATION_SERVICE)
+  gpa: Float @join__field(graph: EVALUATION_SERVICE)
+  attendances: [AttendanceRecord] @join__field(graph: EVALUATION_SERVICE)
+}
+
+# --- Course Domain ---
+
+type Teacher
+  @join__type(graph: COURSE_SERVICE, key: "id")
+{
+  id: String!
+  firstName: String
+  lastName: String
+  email: String
+  specialty: String
+}
+
+type Subject
+  @join__type(graph: COURSE_SERVICE)
+{
+  id: String!
+  name: String
+  code: String
+  coefficient: Int
+}
+
+type CourseSession
+  @join__type(graph: COURSE_SERVICE)
+{
+  id: String!
+  subject: Subject
+  teacher: Teacher
+  classroomId: String
+  dayOfWeek: String
+  startTime: String
+  endTime: String
+  room: String
+}
+
+# --- Evaluation Domain ---
+
+type Exam
+  @join__type(graph: EVALUATION_SERVICE)
+{
+  id: String!
+  title: String
+  subjectCode: String
+  examDate: String
+  coefficient: Float
+}
+
+type Grade
+  @join__type(graph: EVALUATION_SERVICE)
+{
+  id: String!
+  studentId: String
+  exam: Exam
+  score: Float
+  maxScore: Float
+  comment: String
+}
+
+enum AttendanceStatus
+  @join__type(graph: EVALUATION_SERVICE)
+{
+  PRESENT @join__enumValue(graph: EVALUATION_SERVICE)
+  ABSENT_JUSTIFIE @join__enumValue(graph: EVALUATION_SERVICE)
+  ABSENT_NON_JUSTIFIE @join__enumValue(graph: EVALUATION_SERVICE)
+  RETARD @join__enumValue(graph: EVALUATION_SERVICE)
+  DISPENSE @join__enumValue(graph: EVALUATION_SERVICE)
+}
+
+type AttendanceRecord
+  @join__type(graph: EVALUATION_SERVICE)
+{
+  id: String!
+  studentId: String
+  date: String
+  sessionName: String
+  status: AttendanceStatus
+}
+
+# --- Unified Operations ---
+
+type Query
+  @join__type(graph: SCHOOL_SERVICE)
+  @join__type(graph: STUDENT_SERVICE)
+  @join__type(graph: COURSE_SERVICE)
+  @join__type(graph: EVALUATION_SERVICE)
+{
+  # school-service
+  classroom(id: String!): Classroom @join__field(graph: SCHOOL_SERVICE)
+  allClassrooms: [Classroom] @join__field(graph: SCHOOL_SERVICE)
+  school(id: String!): School @join__field(graph: SCHOOL_SERVICE)
+  allSchools: [School] @join__field(graph: SCHOOL_SERVICE)
+
+  # student-service
+  student(id: String!): Student @join__field(graph: STUDENT_SERVICE)
+  allStudents: [Student] @join__field(graph: STUDENT_SERVICE)
+
+  # course-service
+  teacher(id: String!): Teacher @join__field(graph: COURSE_SERVICE)
+  allTeachers: [Teacher] @join__field(graph: COURSE_SERVICE)
+  allSubjects: [Subject] @join__field(graph: COURSE_SERVICE)
+  allCourses: [CourseSession] @join__field(graph: COURSE_SERVICE)
+
+  # evaluation-service
+  exam(id: String!): Exam @join__field(graph: EVALUATION_SERVICE)
+  allExams: [Exam] @join__field(graph: EVALUATION_SERVICE)
+  allGrades: [Grade] @join__field(graph: EVALUATION_SERVICE)
+}
+
+type Mutation
+  @join__type(graph: SCHOOL_SERVICE)
+  @join__type(graph: STUDENT_SERVICE)
+  @join__type(graph: COURSE_SERVICE)
+  @join__type(graph: EVALUATION_SERVICE)
+{
+  # school-service
+  createClassroom(name: String!, code: String!, gradeLevel: String!, capacity: Int!, schoolId: String!): Classroom @join__field(graph: SCHOOL_SERVICE)
+
+  # student-service
+  enrollStudent(firstName: String!, lastName: String!, email: String!, matricule: String!, classroomId: String!): Student @join__field(graph: STUDENT_SERVICE)
+
+  # course-service
+  scheduleCourse(subjectId: String!, teacherId: String!, classroomId: String!, dayOfWeek: String!, startTime: String!, endTime: String!, room: String!): CourseSession @join__field(graph: COURSE_SERVICE)
+
+  # evaluation-service
+  recordGrade(studentId: String!, examId: String!, score: Float!, maxScore: Float!, comment: String!): Grade @join__field(graph: EVALUATION_SERVICE)
+  recordAttendance(studentId: String!, date: String!, sessionName: String!, status: AttendanceStatus!): AttendanceRecord @join__field(graph: EVALUATION_SERVICE)
+}
