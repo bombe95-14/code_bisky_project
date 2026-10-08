@@ -38,10 +38,11 @@ pipeline {
                     echo "   Skip Tests  : ${params.SKIP_TESTS}"
                     echo "=========================================================================="
                     if (isUnix()) {
-                        sh 'java -version && mvn -version && docker -v'
+                        sh 'java -version && mvn -version'
+                        sh 'which docker > /dev/null 2>&1 && docker -v || echo "⚠️ Docker CLI non installé sur le conteneur Jenkins"'
                     } else {
-                        bat 'java -version && mvn -version && docker -v'
-                    }
+                        bat 'java -version && mvn -version'
+                    } 
                 }
             }
         }
